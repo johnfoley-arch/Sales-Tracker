@@ -944,6 +944,117 @@
     }
 
     .settings-gear:hover { color: rgba(255,255,255,0.9); }
+
+    /* ── Instance & Spiff Controls ── */
+    .instance-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+
+    .instance-group label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      white-space: nowrap;
+    }
+
+    .instance-group input[type="number"] {
+      width: 80px;
+      padding: 6px 10px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 13px;
+      outline: none;
+    }
+
+    .instance-group input[type="number"]:focus { border-color: var(--accent); }
+
+    .spiff-toggle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .spiff-toggle label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      cursor: pointer;
+    }
+
+    .toggle-switch {
+      position: relative;
+      width: 36px;
+      height: 20px;
+      background: var(--border);
+      border-radius: 10px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .toggle-switch.active {
+      background: var(--accent);
+    }
+
+    .toggle-switch::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 16px;
+      height: 16px;
+      background: #fff;
+      border-radius: 50%;
+      transition: transform 0.2s;
+    }
+
+    .toggle-switch.active::after {
+      transform: translateX(16px);
+    }
+
+    .commission-breakdown {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-top: 6px;
+      padding: 8px 10px;
+      background: var(--panel-bg);
+      border-radius: 6px;
+      border: 1px solid var(--border);
+    }
+
+    .commission-breakdown .breakdown-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 3px 0;
+    }
+
+    .commission-breakdown .breakdown-row.total {
+      border-top: 1px solid var(--border);
+      margin-top: 4px;
+      padding-top: 6px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .commission-breakdown .breakdown-row.spiff {
+      color: var(--success);
+      font-weight: 600;
+    }
+
+    .new-logo-badge {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 700;
+      background: var(--success);
+      color: #fff;
+      padding: 1px 6px;
+      border-radius: 4px;
+      margin-left: 6px;
+      vertical-align: middle;
+    }
   </style>
 </head>
 <body>
@@ -1036,8 +1147,11 @@
 
     // Migrate old data that lacks new fields
     if (data.commissionRate === undefined) data.commissionRate = 0.05;
+    if (data.spiffAmount === undefined) data.spiffAmount = 5000;
     data.accounts.forEach(a => {
       if (a.dealSize === undefined) a.dealSize = 0;
+      if (a.instances === undefined) a.instances = 0;
+      if (a.isNewLogo === undefined) a.isNewLogo = false;
       a.actions.forEach(act => {
         if (!act.subTodos) act.subTodos = [];
       });
@@ -1097,6 +1211,8 @@
         id: generateId(),
         name,
         dealSize: 0,
+        instances: 0,
+        isNewLogo: false,
         actions: [],
         conversations: [{ id: generateId(), title: 'General', notes: '', notesHtml: '', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }],
         activeConversationId: null,
@@ -1138,24 +1254,95 @@
     }
 
     // ── Commission ──
+    const INSTANCE_MONTHLY = 10000;
+    const INSTANCE_YEARLY = INSTANCE_MONTHLY * 12;
+
+    function updateInstances(accountId) {
+      const account = getAccount(accountId);
+      if (!account) return;
+      const input = document.getElementById('instancesInput');
+      if (!input) return;
+      account.instances = Math.max(0, parseInt(input.value) || 0);
+      account.dealSize = account.instances * INSTANCE_YEARLY;
+      // Sync deal size input
+      const dealInput = document.getElementById('dealSizeInput');
+      if (dealInput) dealInput.value = account.dealSize || '';
+      saveData(data);
+      renderCommissionResult(account);
+      renderCommissionSummary();
+    }
+
     function updateDealSize(accountId) {
       const account = getAccount(accountId);
       if (!account) return;
       const input = document.getElementById('dealSizeInput');
       if (!input) return;
       account.dealSize = Math.max(0, parseFloat(input.value) || 0);
+      // Recalculate instances from deal size
+      account.instances = Math.round(account.dealSize / INSTANCE_YEARLY);
+      const instInput = document.getElementById('instancesInput');
+      if (instInput) instInput.value = account.instances || '';
       saveData(data);
       renderCommissionResult(account);
       renderCommissionSummary();
     }
 
+    function toggleNewLogo(accountId) {
+      const account = getAccount(accountId);
+      if (!account) return;
+      account.isNewLogo = !account.isNewLogo;
+      saveData(data);
+      renderCommissionResult(account);
+      renderCommissionSummary();
+      // Update toggle visual
+      const toggle = document.getElementById('spiffToggle');
+      if (toggle) {
+        toggle.className = 'toggle-switch' + (account.isNewLogo ? ' active' : '');
+      }
+    }
+
     function renderCommissionResult(account) {
       const el = document.getElementById('commissionResult');
       if (!el) return;
+      const instances = account.instances || 0;
       const deal = account.dealSize || 0;
       const rate = data.commissionRate ?? 0.05;
       const comm = deal * rate;
       const pct = (rate * 100).toFixed(1).replace(/\.0$/, '');
+      const spiffAmt = (account.isNewLogo ? (data.spiffAmount ?? 5000) : 0);
+      const totalComm = comm + spiffAmt;
+
+      let breakdownHtml = '<div class="commission-breakdown">';
+      if (instances > 0) {
+        breakdownHtml += `
+          <div class="breakdown-row">
+            <span>${instances} instance${instances !== 1 ? 's' : ''} × ${formatCurrency(INSTANCE_MONTHLY)}/mo</span>
+            <span>${formatCurrency(instances * INSTANCE_MONTHLY)}/mo</span>
+          </div>
+          <div class="breakdown-row">
+            <span>Annual value (×12)</span>
+            <span>${formatCurrency(deal)}</span>
+          </div>`;
+      }
+      breakdownHtml += `
+        <div class="breakdown-row">
+          <span>Commission (${pct}%)</span>
+          <span>${formatCurrency(comm)}</span>
+        </div>`;
+      if (account.isNewLogo) {
+        breakdownHtml += `
+          <div class="breakdown-row spiff">
+            <span>🌟 New Logo Spiff</span>
+            <span>+${formatCurrency(spiffAmt)}</span>
+          </div>`;
+      }
+      breakdownHtml += `
+        <div class="breakdown-row total">
+          <span>Total Earnings</span>
+          <span>${formatCurrency(totalComm)}</span>
+        </div>
+      </div>`;
+
       el.innerHTML = `
         <span class="comm-item">
           <span class="comm-label">Deal:</span>
@@ -1165,31 +1352,39 @@
           <span class="comm-label">Commission (${pct}%):</span>
           <span class="comm-value">${formatCurrency(comm)}</span>
         </span>
+        ${breakdownHtml}
       `;
     }
 
     function renderCommissionSummary() {
       const el = document.getElementById('commissionSummary');
       if (!el) return;
-      const accounts = data.accounts.filter(a => a.dealSize > 0);
+      const accounts = data.accounts.filter(a => a.dealSize > 0 || a.isNewLogo);
       if (accounts.length === 0) { el.style.display = 'none'; return; }
 
       el.style.display = 'block';
-      let totalDeal = 0, totalComm = 0;
+      let totalDeal = 0, totalComm = 0, totalSpiff = 0, totalInstances = 0;
       const rate = data.commissionRate ?? 0.05;
+      const spiffBase = data.spiffAmount ?? 5000;
       let rows = '';
       accounts.forEach(a => {
         const comm = a.dealSize * rate;
+        const spiff = a.isNewLogo ? spiffBase : 0;
         totalDeal += a.dealSize;
         totalComm += comm;
-        rows += `<div class="comm-row"><span>${escapeHtml(a.name)}</span><span class="comm-val">${formatCurrency(comm)}</span></div>`;
+        totalSpiff += spiff;
+        totalInstances += (a.instances || 0);
+        const logoTag = a.isNewLogo ? '<span class="new-logo-badge">NEW</span>' : '';
+        rows += `<div class="comm-row"><span>${escapeHtml(a.name)}${logoTag}${a.instances ? ' (' + a.instances + ' inst.)' : ''}</span><span class="comm-val">${formatCurrency(comm + spiff)}</span></div>`;
       });
 
       el.innerHTML = `
         <h3>💰 Commission Overview</h3>
         ${rows}
-        <div class="comm-total"><span>Total Pipeline</span><span class="comm-val">${formatCurrency(totalDeal)}</span></div>
+        <div class="comm-total"><span>Total Pipeline (${totalInstances} instances)</span><span class="comm-val">${formatCurrency(totalDeal)}</span></div>
         <div class="comm-total"><span>Total Commission</span><span class="comm-val">${formatCurrency(totalComm)}</span></div>
+        ${totalSpiff > 0 ? `<div class="comm-total"><span>🌟 Total Spiffs</span><span class="comm-val">${formatCurrency(totalSpiff)}</span></div>` : ''}
+        <div class="comm-total" style="font-weight:800;"><span>Grand Total</span><span class="comm-val">${formatCurrency(totalComm + totalSpiff)}</span></div>
       `;
     }
 
@@ -1433,12 +1628,27 @@
             <h2><span class="icon">✅</span> Action Items — ${escapeHtml(account.name)}</h2>
           </div>
           <div class="commission-panel">
-            <label>💰 Deal Size</label>
+            <div class="instance-group">
+              <label>📦 Instances</label>
+              <input type="number" id="instancesInput" placeholder="0" min="0" step="1"
+                     value="${account.instances || ''}"
+                     oninput="updateInstances('${account.id}')" />
+              <span style="font-size:11px;color:var(--text-light)">× $10k/mo = $120k/yr each</span>
+            </div>
+            <label>💰 Deal Size (Annual)</label>
             <div class="deal-input-group">
               <span class="dollar">$</span>
               <input type="number" id="dealSizeInput" placeholder="0.00" min="0" step="100"
                      value="${account.dealSize || ''}"
                      oninput="updateDealSize('${account.id}')" />
+            </div>
+            <div class="spiff-toggle">
+              <label onclick="toggleNewLogo('${account.id}')">🌟 New Logo Spiff</label>
+              <div class="toggle-switch${account.isNewLogo ? ' active' : ''}" id="spiffToggle"
+                   role="switch" aria-checked="${account.isNewLogo}" tabindex="0"
+                   onclick="toggleNewLogo('${account.id}')"
+                   onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleNewLogo('${account.id}')}"></div>
+              ${account.isNewLogo ? '<span class="new-logo-badge">NEW LOGO</span>' : ''}
             </div>
             <div class="commission-result" id="commissionResult"></div>
           </div>
@@ -1698,8 +1908,11 @@
               data = imported;
               // Run migrations on imported data
               if (data.commissionRate === undefined) data.commissionRate = 0.05;
+              if (data.spiffAmount === undefined) data.spiffAmount = 5000;
               data.accounts.forEach(a => {
                 if (a.dealSize === undefined) a.dealSize = 0;
+                if (a.instances === undefined) a.instances = 0;
+                if (a.isNewLogo === undefined) a.isNewLogo = false;
                 if (!Array.isArray(a.actions)) a.actions = [];
                 if (!Array.isArray(a.conversations)) a.conversations = [{ id: generateId(), title: 'General', notes: '', notesHtml: '', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }];
                 a.actions.forEach(act => {
@@ -1729,6 +1942,7 @@
     // ── Settings ──
     function openSettings() {
       const rate = ((data.commissionRate ?? 0.05) * 100).toFixed(1);
+      const spiff = data.spiffAmount ?? 5000;
       const overlay = document.createElement('div');
       overlay.className = 'settings-modal-overlay';
       overlay.id = 'settingsOverlay';
@@ -1737,6 +1951,8 @@
           <h3>\u2699 Settings</h3>
           <label for="commissionRateInput">Commission Rate (%)</label>
           <input type="number" id="commissionRateInput" value="${rate}" min="0" max="100" step="0.1" />
+          <label for="spiffAmountInput">New Logo Spiff Amount ($)</label>
+          <input type="number" id="spiffAmountInput" value="${spiff}" min="0" step="500" />
           <div class="modal-actions">
             <button onclick="closeSettings()">Cancel</button>
             <button class="primary" onclick="saveSettings()">Save</button>
@@ -1757,6 +1973,7 @@
 
     function saveSettings() {
       const input = document.getElementById('commissionRateInput');
+      const spiffInput = document.getElementById('spiffAmountInput');
       if (!input) return;
       const pct = parseFloat(input.value);
       if (isNaN(pct) || pct < 0 || pct > 100) {
@@ -1764,6 +1981,10 @@
         return;
       }
       data.commissionRate = pct / 100;
+      if (spiffInput) {
+        const spiffVal = parseFloat(spiffInput.value);
+        data.spiffAmount = isNaN(spiffVal) || spiffVal < 0 ? 5000 : spiffVal;
+      }
       saveData(data);
       closeSettings();
       const account = getSelectedAccount();
