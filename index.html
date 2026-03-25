@@ -1153,7 +1153,7 @@
       const el = document.getElementById('commissionResult');
       if (!el) return;
       const deal = account.dealSize || 0;
-      const rate = data.commissionRate || 0.05;
+      const rate = data.commissionRate ?? 0.05;
       const comm = deal * rate;
       const pct = (rate * 100).toFixed(1).replace(/\.0$/, '');
       el.innerHTML = `
@@ -1176,7 +1176,7 @@
 
       el.style.display = 'block';
       let totalDeal = 0, totalComm = 0;
-      const rate = data.commissionRate || 0.05;
+      const rate = data.commissionRate ?? 0.05;
       let rows = '';
       accounts.forEach(a => {
         const comm = a.dealSize * rate;
@@ -1663,6 +1663,7 @@
 
     // ── Export / Import ──
     function exportData() {
+      saveCurrentNotes();
       const json = JSON.stringify(data, null, 2);
       const blob = new Blob([json], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
@@ -1692,22 +1693,30 @@
               return;
             }
             if (!confirm('This will replace all existing data. Are you sure?')) return;
-            data = imported;
-            // Run migrations on imported data
-            if (data.commissionRate === undefined) data.commissionRate = 0.05;
-            data.accounts.forEach(a => {
-              if (a.dealSize === undefined) a.dealSize = 0;
-              a.actions.forEach(act => {
-                if (!act.subTodos) act.subTodos = [];
+            const previousData = data;
+            try {
+              data = imported;
+              // Run migrations on imported data
+              if (data.commissionRate === undefined) data.commissionRate = 0.05;
+              data.accounts.forEach(a => {
+                if (a.dealSize === undefined) a.dealSize = 0;
+                if (!Array.isArray(a.actions)) a.actions = [];
+                if (!Array.isArray(a.conversations)) a.conversations = [{ id: generateId(), title: 'General', notes: '', notesHtml: '', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }];
+                a.actions.forEach(act => {
+                  if (!act.subTodos) act.subTodos = [];
+                });
+                a.conversations.forEach(c => {
+                  if (c.notesHtml === undefined) c.notesHtml = c.notes || '';
+                  if (!c.createdAt) c.createdAt = new Date().toISOString();
+                  if (!c.updatedAt) c.updatedAt = c.createdAt;
+                });
               });
-              a.conversations.forEach(c => {
-                if (c.notesHtml === undefined) c.notesHtml = c.notes || '';
-                if (!c.createdAt) c.createdAt = new Date().toISOString();
-                if (!c.updatedAt) c.updatedAt = c.createdAt;
-              });
-            });
-            saveData(data);
-            render();
+              saveData(data);
+              render();
+            } catch (migrationErr) {
+              data = previousData;
+              alert('Failed to import data: ' + migrationErr.message);
+            }
           } catch (err) {
             alert('Failed to import data: ' + err.message);
           }
@@ -1719,7 +1728,7 @@
 
     // ── Settings ──
     function openSettings() {
-      const rate = ((data.commissionRate || 0.05) * 100).toFixed(1);
+      const rate = ((data.commissionRate ?? 0.05) * 100).toFixed(1);
       const overlay = document.createElement('div');
       overlay.className = 'settings-modal-overlay';
       overlay.id = 'settingsOverlay';
