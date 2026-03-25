@@ -6,6 +6,7 @@
   <title>Sales Account Tracker</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -26,6 +27,7 @@
       --success: #22c55e;
       --warning: #f59e0b;
       --archive-bg: #fefce8;
+      --commission-bg: #f0fdf4;
     }
 
     body {
@@ -159,6 +161,47 @@
     .account-item:hover .delete-btn { opacity: 1; }
     .account-item .delete-btn:hover { color: var(--danger); }
 
+    /* ── Commission Summary in Sidebar ── */
+    .commission-summary {
+      padding: 14px 20px;
+      border-top: 1px solid rgba(255,255,255,0.1);
+      background: rgba(34,197,94,0.08);
+    }
+
+    .commission-summary h3 {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: rgba(255,255,255,0.5);
+      margin-bottom: 8px;
+    }
+
+    .commission-summary .comm-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      margin-bottom: 4px;
+      color: rgba(255,255,255,0.7);
+    }
+
+    .commission-summary .comm-row .comm-val {
+      font-weight: 700;
+      color: #4ade80;
+    }
+
+    .commission-summary .comm-total {
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid rgba(255,255,255,0.1);
+      display: flex;
+      justify-content: space-between;
+      font-size: 14px;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .commission-summary .comm-total .comm-val { color: #4ade80; }
+
     .sidebar-footer {
       padding: 16px 20px;
       border-top: 1px solid rgba(255,255,255,0.1);
@@ -191,7 +234,7 @@
     /* ── Action Items Panel (center) ── */
     .actions-panel {
       flex: 1;
-      min-width: 360px;
+      min-width: 380px;
       display: flex;
       flex-direction: column;
       border-right: 1px solid var(--border);
@@ -213,6 +256,73 @@
     }
 
     .panel-header h2 .icon { font-size: 18px; }
+
+    /* ── Commission Tracker ── */
+    .commission-panel {
+      padding: 14px 24px;
+      background: var(--commission-bg);
+      border-bottom: 1px solid #bbf7d0;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .commission-panel label {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+
+    .commission-panel .deal-input-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .commission-panel .deal-input-group span.dollar {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+
+    .commission-panel input[type="number"] {
+      width: 130px;
+      padding: 8px 12px;
+      border: 1px solid #bbf7d0;
+      border-radius: 8px;
+      font-size: 13px;
+      outline: none;
+      background: #fff;
+      transition: border-color 0.2s;
+    }
+
+    .commission-panel input[type="number"]:focus { border-color: var(--success); }
+
+    .commission-panel .commission-result {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-left: auto;
+      font-size: 13px;
+    }
+
+    .commission-panel .commission-result .comm-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .commission-panel .commission-result .comm-label {
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+
+    .commission-panel .commission-result .comm-value {
+      font-weight: 700;
+      color: var(--success);
+      font-size: 15px;
+    }
 
     .add-action-form {
       padding: 16px 24px;
@@ -341,7 +451,7 @@
     }
 
     .action-item .checkbox.checked::after {
-      content: '✓';
+      content: '\2713';
       color: #fff;
       font-size: 12px;
       font-weight: 700;
@@ -380,7 +490,14 @@
 
     .action-item .completed-date { color: var(--success); }
 
-    .action-item .delete-action {
+    .action-item .action-buttons {
+      display: flex;
+      gap: 4px;
+      flex-shrink: 0;
+      align-items: flex-start;
+    }
+
+    .action-item .action-btn {
       opacity: 0;
       background: none;
       border: none;
@@ -389,11 +506,135 @@
       font-size: 14px;
       padding: 4px;
       transition: opacity 0.15s, color 0.15s;
-      flex-shrink: 0;
     }
 
-    .action-item:hover .delete-action { opacity: 1; }
-    .action-item .delete-action:hover { color: var(--danger); }
+    .action-item:hover .action-btn { opacity: 1; }
+    .action-item .action-btn:hover { color: var(--accent); }
+    .action-item .action-btn.delete-action:hover { color: var(--danger); }
+
+    /* ── Sub-todos ── */
+    .sub-todos {
+      margin-top: 8px;
+      padding-left: 4px;
+    }
+
+    .sub-todo-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 0;
+      font-size: 13px;
+    }
+
+    .sub-todo-item .sub-checkbox {
+      width: 16px;
+      height: 16px;
+      border: 2px solid var(--border);
+      border-radius: 4px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: all 0.2s;
+      background: #fff;
+    }
+
+    .sub-todo-item .sub-checkbox:hover { border-color: var(--success); }
+
+    .sub-todo-item .sub-checkbox.checked {
+      background: var(--success);
+      border-color: var(--success);
+    }
+
+    .sub-todo-item .sub-checkbox.checked::after {
+      content: '\2713';
+      color: #fff;
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    .sub-todo-item .sub-text {
+      flex: 1;
+      color: var(--text-primary);
+    }
+
+    .sub-todo-item .sub-text.completed {
+      text-decoration: line-through;
+      color: var(--text-light);
+    }
+
+    .sub-todo-item .sub-delete {
+      opacity: 0;
+      background: none;
+      border: none;
+      color: var(--text-light);
+      cursor: pointer;
+      font-size: 12px;
+      padding: 2px;
+      transition: opacity 0.15s;
+    }
+
+    .sub-todo-item:hover .sub-delete { opacity: 1; }
+    .sub-todo-item .sub-delete:hover { color: var(--danger); }
+
+    .add-sub-form {
+      display: flex;
+      gap: 6px;
+      margin-top: 6px;
+    }
+
+    .add-sub-form input {
+      flex: 1;
+      padding: 6px 10px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 12px;
+      outline: none;
+      background: var(--panel-bg);
+      transition: border-color 0.2s;
+    }
+
+    .add-sub-form input:focus { border-color: var(--accent); }
+
+    .add-sub-form button {
+      padding: 6px 10px;
+      background: var(--panel-bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--accent);
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .add-sub-form button:hover { background: #e0e7ff; }
+
+    .sub-progress {
+      margin-top: 4px;
+      font-size: 11px;
+      color: var(--text-light);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .sub-progress-bar {
+      flex: 1;
+      max-width: 100px;
+      height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .sub-progress-bar .fill {
+      height: 100%;
+      background: var(--success);
+      border-radius: 2px;
+      transition: width 0.3s;
+    }
 
     .no-items {
       text-align: center;
@@ -500,20 +741,33 @@
       overflow: hidden;
     }
 
-    .note-editor-area textarea {
+    #quill-container {
       flex: 1;
-      padding: 20px 24px;
-      border: none;
-      outline: none;
+      overflow-y: auto;
+    }
+
+    #quill-container .ql-editor {
+      min-height: 100%;
+      font-family: 'Inter', sans-serif;
       font-size: 14px;
       line-height: 1.7;
       color: var(--text-primary);
-      resize: none;
-      font-family: 'Inter', sans-serif;
-      background: #fff;
     }
 
-    .note-editor-area textarea::placeholder { color: var(--text-light); }
+    #quill-container .ql-editor.ql-blank::before {
+      color: var(--text-light);
+      font-style: normal;
+    }
+
+    .ql-toolbar.ql-snow {
+      border: none;
+      border-bottom: 1px solid var(--border);
+      background: var(--panel-bg);
+    }
+
+    .ql-container.ql-snow {
+      border: none;
+    }
 
     .note-footer {
       padding: 10px 24px;
@@ -544,10 +798,10 @@
     .account-list::-webkit-scrollbar { width: 5px; }
 
     /* ── Responsive tweaks ── */
-    @media (max-width: 900px) {
-      .sidebar { width: 200px; min-width: 200px; }
-      .actions-panel { min-width: 280px; }
-      .notes-panel { min-width: 280px; }
+    @media (max-width: 1100px) {
+      .sidebar { width: 220px; min-width: 220px; }
+      .actions-panel { min-width: 320px; }
+      .notes-panel { min-width: 320px; }
     }
   </style>
 </head>
@@ -563,6 +817,7 @@
       <button onclick="addAccount()">+ Add</button>
     </div>
     <div class="account-list" id="accountList"></div>
+    <div class="commission-summary" id="commissionSummary" style="display:none;"></div>
     <div class="sidebar-footer">Data saved locally in your browser</div>
   </div>
 
@@ -574,9 +829,13 @@
     </div>
   </div>
 
+  <script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
   <script>
     // ── Data Layer ──
     const STORAGE_KEY = 'salesTrackerData';
+    const COMMISSION_RATE = 0.05;
+    let quillInstance = null;
+    let quillSaveTimer = null;
 
     function loadData() {
       const raw = localStorage.getItem(STORAGE_KEY);
@@ -584,11 +843,23 @@
       return { accounts: [], selectedAccountId: null };
     }
 
-    function saveData(data) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    function saveData(d) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(d));
     }
 
     let data = loadData();
+
+    // Migrate old accounts that lack new fields
+    data.accounts.forEach(a => {
+      if (a.dealSize === undefined) a.dealSize = 0;
+      a.actions.forEach(act => {
+        if (!act.subTodos) act.subTodos = [];
+      });
+      a.conversations.forEach(c => {
+        if (c.notesHtml === undefined) c.notesHtml = c.notes || '';
+      });
+    });
+    saveData(data);
 
     // ── Helpers ──
     function generateId() {
@@ -605,6 +876,10 @@
       return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     }
 
+    function formatCurrency(num) {
+      return '$' + Number(num || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
     function isOverdue(dateStr) {
       if (!dateStr) return false;
       return dateStr < todayStr();
@@ -618,6 +893,12 @@
       return getAccount(data.selectedAccountId);
     }
 
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
     // ── Account Operations ──
     function addAccount() {
       const input = document.getElementById('newAccountName');
@@ -627,8 +908,9 @@
       const account = {
         id: generateId(),
         name,
+        dealSize: 0,
         actions: [],
-        conversations: [{ id: generateId(), title: 'General', notes: '' }],
+        conversations: [{ id: generateId(), title: 'General', notes: '', notesHtml: '' }],
         activeConversationId: null,
         activeTab: 'active'
       };
@@ -642,6 +924,7 @@
     }
 
     function selectAccount(id) {
+      saveCurrentNotes();
       data.selectedAccountId = id;
       saveData(data);
       render();
@@ -655,6 +938,59 @@
       }
       saveData(data);
       render();
+    }
+
+    // ── Commission ──
+    function updateDealSize(accountId) {
+      const account = getAccount(accountId);
+      if (!account) return;
+      const input = document.getElementById('dealSizeInput');
+      if (!input) return;
+      account.dealSize = parseFloat(input.value) || 0;
+      saveData(data);
+      renderCommissionResult(account);
+      renderCommissionSummary();
+    }
+
+    function renderCommissionResult(account) {
+      const el = document.getElementById('commissionResult');
+      if (!el) return;
+      const deal = account.dealSize || 0;
+      const comm = deal * COMMISSION_RATE;
+      el.innerHTML = `
+        <span class="comm-item">
+          <span class="comm-label">Deal:</span>
+          <span class="comm-value">${formatCurrency(deal)}</span>
+        </span>
+        <span class="comm-item">
+          <span class="comm-label">Commission (5%):</span>
+          <span class="comm-value">${formatCurrency(comm)}</span>
+        </span>
+      `;
+    }
+
+    function renderCommissionSummary() {
+      const el = document.getElementById('commissionSummary');
+      if (!el) return;
+      const accounts = data.accounts.filter(a => a.dealSize > 0);
+      if (accounts.length === 0) { el.style.display = 'none'; return; }
+
+      el.style.display = 'block';
+      let totalDeal = 0, totalComm = 0;
+      let rows = '';
+      accounts.forEach(a => {
+        const comm = a.dealSize * COMMISSION_RATE;
+        totalDeal += a.dealSize;
+        totalComm += comm;
+        rows += `<div class="comm-row"><span>${escapeHtml(a.name)}</span><span class="comm-val">${formatCurrency(comm)}</span></div>`;
+      });
+
+      el.innerHTML = `
+        <h3>💰 Commission Overview</h3>
+        ${rows}
+        <div class="comm-total"><span>Total Pipeline</span><span class="comm-val">${formatCurrency(totalDeal)}</span></div>
+        <div class="comm-total"><span>Total Commission</span><span class="comm-val">${formatCurrency(totalComm)}</span></div>
+      `;
     }
 
     // ── Action Item Operations ──
@@ -673,7 +1009,8 @@
         dueDate: dateInput.value || null,
         completed: false,
         completedDate: null,
-        createdDate: todayStr()
+        createdDate: todayStr(),
+        subTodos: []
       });
 
       textInput.value = '';
@@ -704,7 +1041,62 @@
       renderAccountList();
     }
 
+    // ── Sub-Todo Operations ──
+    function addSubTodo(accountId, actionId) {
+      const account = getAccount(accountId);
+      const action = account.actions.find(a => a.id === actionId);
+      if (!action) return;
+
+      const input = document.getElementById(`sub-input-${actionId}`);
+      if (!input) return;
+      const text = input.value.trim();
+      if (!text) return;
+
+      action.subTodos.push({
+        id: generateId(),
+        text,
+        completed: false
+      });
+
+      input.value = '';
+      saveData(data);
+      renderActions(account);
+    }
+
+    function toggleSubTodo(accountId, actionId, subId) {
+      const account = getAccount(accountId);
+      const action = account.actions.find(a => a.id === actionId);
+      if (!action) return;
+      const sub = action.subTodos.find(s => s.id === subId);
+      if (!sub) return;
+
+      sub.completed = !sub.completed;
+      saveData(data);
+      renderActions(account);
+    }
+
+    function deleteSubTodo(accountId, actionId, subId) {
+      const account = getAccount(accountId);
+      const action = account.actions.find(a => a.id === actionId);
+      if (!action) return;
+
+      action.subTodos = action.subTodos.filter(s => s.id !== subId);
+      saveData(data);
+      renderActions(account);
+    }
+
     // ── Conversation Operations ──
+    function saveCurrentNotes() {
+      if (!quillInstance) return;
+      const account = getSelectedAccount();
+      if (!account) return;
+      const conv = account.conversations.find(c => c.id === account.activeConversationId);
+      if (!conv) return;
+      conv.notesHtml = quillInstance.root.innerHTML;
+      conv.notes = quillInstance.getText();
+      saveData(data);
+    }
+
     function addConversation() {
       const account = getSelectedAccount();
       if (!account) return;
@@ -712,7 +1104,8 @@
       const title = prompt('Conversation name:', `Meeting ${account.conversations.length + 1}`);
       if (!title || !title.trim()) return;
 
-      const conv = { id: generateId(), title: title.trim(), notes: '' };
+      saveCurrentNotes();
+      const conv = { id: generateId(), title: title.trim(), notes: '', notesHtml: '' };
       account.conversations.push(conv);
       account.activeConversationId = conv.id;
       saveData(data);
@@ -722,6 +1115,7 @@
     function selectConversation(convId) {
       const account = getSelectedAccount();
       if (!account) return;
+      saveCurrentNotes();
       account.activeConversationId = convId;
       saveData(data);
       renderNotes(account);
@@ -746,6 +1140,7 @@
       if (!conv) return;
 
       const tab = document.querySelector(`.conversation-tab[data-id="${convId}"] .conv-title`);
+      if (!tab) return;
       const originalText = conv.title;
 
       const input = document.createElement('input');
@@ -771,30 +1166,11 @@
       });
     }
 
-    function saveNotes() {
-      const account = getSelectedAccount();
-      if (!account) return;
-      const conv = account.conversations.find(c => c.id === account.activeConversationId);
-      if (!conv) return;
-      const textarea = document.getElementById('noteTextarea');
-      if (textarea) {
-        conv.notes = textarea.value;
-        saveData(data);
-        updateNoteFooter(conv);
-      }
-    }
-
-    function updateNoteFooter(conv) {
-      const charCount = document.getElementById('charCount');
-      if (charCount) {
-        charCount.textContent = `${conv.notes.length} characters`;
-      }
-    }
-
     // ── Rendering ──
     function render() {
       renderAccountList();
       renderMainContent();
+      renderCommissionSummary();
     }
 
     function renderAccountList() {
@@ -810,7 +1186,7 @@
         div.innerHTML = `
           <span class="account-name">${escapeHtml(account.name)}</span>
           ${activeCount > 0 ? `<span class="account-badge">${activeCount}</span>` : ''}
-          <button class="delete-btn" onclick="event.stopPropagation(); deleteAccount('${account.id}')" title="Delete account">×</button>
+          <button class="delete-btn" onclick="event.stopPropagation(); deleteAccount('${account.id}')" title="Delete account">&times;</button>
         `;
         div.addEventListener('click', () => selectAccount(account.id));
         list.appendChild(div);
@@ -820,6 +1196,8 @@
     function renderMainContent() {
       const main = document.getElementById('mainContent');
       const account = getSelectedAccount();
+
+      quillInstance = null;
 
       if (!account) {
         main.innerHTML = `
@@ -834,6 +1212,16 @@
         <div class="actions-panel">
           <div class="panel-header">
             <h2><span class="icon">✅</span> Action Items — ${escapeHtml(account.name)}</h2>
+          </div>
+          <div class="commission-panel">
+            <label>💰 Deal Size</label>
+            <div class="deal-input-group">
+              <span class="dollar">$</span>
+              <input type="number" id="dealSizeInput" placeholder="0.00" min="0" step="100"
+                     value="${account.dealSize || ''}"
+                     oninput="updateDealSize('${account.id}')" />
+            </div>
+            <div class="commission-result" id="commissionResult"></div>
           </div>
           <div class="add-action-form">
             <input type="text" id="actionText" placeholder="Add an action item…" onkeydown="if(event.key==='Enter') addAction()" />
@@ -863,6 +1251,7 @@
         </div>
       `;
 
+      renderCommissionResult(account);
       renderActions(account);
       renderNotes(account);
     }
@@ -872,6 +1261,8 @@
       if (!account) return;
       account.activeTab = tab;
       saveData(data);
+      // Re-render just actions panel content
+      const main = document.getElementById('mainContent');
       renderMainContent();
     }
 
@@ -882,7 +1273,6 @@
       const tab = account.activeTab || 'active';
       const filtered = account.actions.filter(a => tab === 'active' ? !a.completed : a.completed);
 
-      // Sort: active by due date (nulls last), archived by completed date desc
       filtered.sort((a, b) => {
         if (tab === 'active') {
           if (!a.dueDate && !b.dueDate) return 0;
@@ -905,6 +1295,37 @@
 
       list.innerHTML = filtered.map(action => {
         const overdue = tab === 'active' && isOverdue(action.dueDate);
+        const subs = action.subTodos || [];
+        const subDone = subs.filter(s => s.completed).length;
+        const subTotal = subs.length;
+
+        let subHtml = '';
+        if (subs.length > 0) {
+          subHtml += `<div class="sub-progress">
+            <span>${subDone}/${subTotal} subtasks</span>
+            <div class="sub-progress-bar"><div class="fill" style="width:${subTotal > 0 ? (subDone/subTotal*100) : 0}%"></div></div>
+          </div>`;
+        }
+        subHtml += '<div class="sub-todos">';
+        subs.forEach(sub => {
+          subHtml += `
+            <div class="sub-todo-item">
+              <div class="sub-checkbox ${sub.completed ? 'checked' : ''}"
+                   onclick="toggleSubTodo('${account.id}','${action.id}','${sub.id}')"></div>
+              <span class="sub-text ${sub.completed ? 'completed' : ''}">${escapeHtml(sub.text)}</span>
+              <button class="sub-delete" onclick="deleteSubTodo('${account.id}','${action.id}','${sub.id}')">&times;</button>
+            </div>`;
+        });
+        if (!action.completed) {
+          subHtml += `
+            <div class="add-sub-form">
+              <input type="text" id="sub-input-${action.id}" placeholder="Add subtask…"
+                     onkeydown="if(event.key==='Enter') addSubTodo('${account.id}','${action.id}')" />
+              <button onclick="addSubTodo('${account.id}','${action.id}')">+</button>
+            </div>`;
+        }
+        subHtml += '</div>';
+
         return `
           <div class="action-item ${action.completed ? 'archived' : ''}">
             <div class="checkbox ${action.completed ? 'checked' : ''}"
@@ -916,8 +1337,11 @@
                 ${action.completedDate ? `<span class="completed-date">✅ Completed ${formatDate(action.completedDate)}</span>` : ''}
                 <span>Created ${formatDate(action.createdDate)}</span>
               </div>
+              ${subHtml}
             </div>
-            <button class="delete-action" onclick="deleteAction('${account.id}', '${action.id}')" title="Delete">🗑</button>
+            <div class="action-buttons">
+              <button class="action-btn delete-action" onclick="deleteAction('${account.id}', '${action.id}')" title="Delete">🗑</button>
+            </div>
           </div>`;
       }).join('');
     }
@@ -935,27 +1359,53 @@
                 onclick="selectConversation('${conv.id}')"
                 ondblclick="renameConversation('${conv.id}')">
           <span class="conv-title">${escapeHtml(conv.title)}</span>
-          ${account.conversations.length > 1 ? `<span class="remove-conv" onclick="event.stopPropagation(); removeConversation('${conv.id}')">×</span>` : ''}
+          ${account.conversations.length > 1 ? `<span class="remove-conv" onclick="event.stopPropagation(); removeConversation('${conv.id}')">&times;</span>` : ''}
         </button>
       `).join('');
 
       const activeConv = account.conversations.find(c => c.id === activeConvId);
       if (activeConv) {
         editor.innerHTML = `
-          <textarea id="noteTextarea" placeholder="Start typing your notes for this conversation…"
-                    oninput="saveNotes()">${escapeHtml(activeConv.notes)}</textarea>
+          <div id="quill-toolbar"></div>
+          <div id="quill-container"></div>
           <div class="note-footer">
-            <span id="charCount">${activeConv.notes.length} characters</span>
             <span>Double-click a tab to rename</span>
+            <span>Auto-saved</span>
           </div>
         `;
-      }
-    }
 
-    function escapeHtml(str) {
-      const div = document.createElement('div');
-      div.textContent = str;
-      return div.innerHTML;
+        quillInstance = new Quill('#quill-container', {
+          theme: 'snow',
+          modules: {
+            toolbar: [
+              [{ 'header': [1, 2, 3, false] }],
+              [{ 'font': [] }],
+              ['bold', 'italic', 'underline', 'strike'],
+              [{ 'color': [] }, { 'background': [] }],
+              [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+              [{ 'indent': '-1' }, { 'indent': '+1' }],
+              [{ 'align': [] }],
+              ['blockquote', 'code-block'],
+              ['link'],
+              ['clean']
+            ]
+          },
+          placeholder: 'Start typing your notes for this conversation…'
+        });
+
+        if (activeConv.notesHtml) {
+          quillInstance.root.innerHTML = activeConv.notesHtml;
+        }
+
+        quillInstance.on('text-change', () => {
+          clearTimeout(quillSaveTimer);
+          quillSaveTimer = setTimeout(() => {
+            activeConv.notesHtml = quillInstance.root.innerHTML;
+            activeConv.notes = quillInstance.getText();
+            saveData(data);
+          }, 400);
+        });
+      }
     }
 
     // ── Keyboard shortcut ──
