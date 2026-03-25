@@ -803,6 +803,147 @@
       .actions-panel { min-width: 320px; }
       .notes-panel { min-width: 320px; }
     }
+
+    /* ── Save Indicator ── */
+    .save-indicator { transition: color 0.3s, opacity 0.3s; }
+    .save-indicator.saving { color: var(--warning); }
+    .save-indicator.saved { color: var(--success); }
+    .save-indicator.failed { color: var(--danger); font-weight: 600; }
+
+    @keyframes saveHighlight {
+      0% { opacity: 1; transform: scale(1.05); }
+      100% { opacity: 0.8; transform: scale(1); }
+    }
+    .save-indicator.saved { animation: saveHighlight 0.5s ease-out; }
+
+    /* ── Search Input ── */
+    .search-container { padding: 0 12px 8px; }
+
+    .search-input {
+      width: 100%;
+      padding: 8px 12px;
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.15);
+      background: rgba(255,255,255,0.08);
+      color: #fff;
+      font-size: 13px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .search-input::placeholder { color: rgba(255,255,255,0.4); }
+    .search-input:focus { border-color: var(--accent); }
+
+    /* ── Data Actions (Export/Import) ── */
+    .data-actions {
+      padding: 10px 20px;
+      border-top: 1px solid rgba(255,255,255,0.1);
+      display: flex;
+      gap: 8px;
+    }
+
+    .data-actions button {
+      flex: 1;
+      padding: 7px 10px;
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.15);
+      background: rgba(255,255,255,0.08);
+      color: rgba(255,255,255,0.8);
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .data-actions button:hover { background: rgba(255,255,255,0.15); }
+
+    /* ── Settings Modal ── */
+    .settings-modal-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+
+    .settings-modal {
+      background: #fff;
+      border-radius: 12px;
+      padding: 24px;
+      width: 360px;
+      max-width: 90vw;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+
+    .settings-modal h3 {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 16px;
+      color: var(--text-primary);
+    }
+
+    .settings-modal label {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    .settings-modal input[type="number"] {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 14px;
+      outline: none;
+      margin-bottom: 16px;
+    }
+
+    .settings-modal input[type="number"]:focus { border-color: var(--accent); }
+
+    .settings-modal .modal-actions {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+
+    .settings-modal .modal-actions button {
+      padding: 8px 18px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: #fff;
+      color: var(--text-primary);
+      transition: background 0.2s;
+    }
+
+    .settings-modal .modal-actions button:hover { background: var(--panel-bg); }
+
+    .settings-modal .modal-actions button.primary {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+    }
+
+    .settings-modal .modal-actions button.primary:hover { background: var(--accent-hover); }
+
+    .settings-gear {
+      background: none;
+      border: none;
+      color: rgba(255,255,255,0.5);
+      cursor: pointer;
+      font-size: 16px;
+      padding: 4px;
+      transition: color 0.2s;
+      margin-left: 8px;
+    }
+
+    .settings-gear:hover { color: rgba(255,255,255,0.9); }
   </style>
 </head>
 <body>
@@ -810,14 +951,21 @@
   <!-- Sidebar: Account List -->
   <div class="sidebar">
     <div class="sidebar-header">
-      <h1><span>📊</span> Sales Tracker</h1>
+      <h1><span>📊</span> Sales Tracker <button class="settings-gear" onclick="openSettings()" title="Settings" role="button" aria-label="Open settings">⚙</button></h1>
     </div>
     <div class="add-account-form">
       <input type="text" id="newAccountName" placeholder="New account name…" />
       <button onclick="addAccount()">+ Add</button>
     </div>
+    <div class="search-container">
+      <input type="text" class="search-input" id="accountSearch" placeholder="Search accounts…" oninput="renderAccountList()" aria-label="Search accounts" />
+    </div>
     <div class="account-list" id="accountList"></div>
     <div class="commission-summary" id="commissionSummary" style="display:none;"></div>
+    <div class="data-actions">
+      <button onclick="exportData()" title="Export data to JSON file">📤 Export</button>
+      <button onclick="importData()" title="Import data from JSON file">📥 Import</button>
+    </div>
     <div class="sidebar-footer">Data saved locally in your browser</div>
   </div>
 
@@ -833,23 +981,61 @@
   <script>
     // ── Data Layer ──
     const STORAGE_KEY = 'salesTrackerData';
-    const COMMISSION_RATE = 0.05;
     let quillInstance = null;
     let quillSaveTimer = null;
 
     function loadData() {
       const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) return JSON.parse(raw);
+      if (raw) {
+        try {
+          return JSON.parse(raw);
+        } catch (e) {
+          console.warn('Failed to parse saved data, resetting:', e);
+          localStorage.removeItem(STORAGE_KEY);
+          return { accounts: [], selectedAccountId: null };
+        }
+      }
       return { accounts: [], selectedAccountId: null };
     }
 
     function saveData(d) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(d));
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(d));
+        updateSaveIndicator('saved');
+      } catch (e) {
+        console.error('Failed to save data:', e);
+        updateSaveIndicator('failed');
+        if (e.name === 'QuotaExceededError' || e.code === 22) {
+          alert('Storage is full! Your data may not be saved. Please export your data and clear some space.');
+        }
+      }
+    }
+
+    function updateSaveIndicator(state) {
+      const el = document.getElementById('saveIndicator');
+      if (!el) return;
+      if (state === 'saving') {
+        el.textContent = 'Saving...';
+        el.className = 'save-indicator saving';
+      } else if (state === 'saved') {
+        el.textContent = 'Saved \u2713';
+        el.className = 'save-indicator saved';
+      } else if (state === 'failed') {
+        el.textContent = 'Save failed!';
+        el.className = 'save-indicator failed';
+      }
+    }
+
+    function formatTimestamp(isoStr) {
+      if (!isoStr) return '';
+      const d = new Date(isoStr);
+      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
     }
 
     let data = loadData();
 
-    // Migrate old accounts that lack new fields
+    // Migrate old data that lacks new fields
+    if (data.commissionRate === undefined) data.commissionRate = 0.05;
     data.accounts.forEach(a => {
       if (a.dealSize === undefined) a.dealSize = 0;
       a.actions.forEach(act => {
@@ -857,6 +1043,8 @@
       });
       a.conversations.forEach(c => {
         if (c.notesHtml === undefined) c.notesHtml = c.notes || '';
+        if (!c.createdAt) c.createdAt = new Date().toISOString();
+        if (!c.updatedAt) c.updatedAt = c.createdAt;
       });
     });
     saveData(data);
@@ -910,7 +1098,7 @@
         name,
         dealSize: 0,
         actions: [],
-        conversations: [{ id: generateId(), title: 'General', notes: '', notesHtml: '' }],
+        conversations: [{ id: generateId(), title: 'General', notes: '', notesHtml: '', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }],
         activeConversationId: null,
         activeTab: 'active'
       };
@@ -932,6 +1120,15 @@
 
     function deleteAccount(id) {
       if (!confirm('Delete this account and all its data?')) return;
+      // Cancel any pending debounce timer to prevent orphaned saves
+      if (quillSaveTimer) {
+        clearTimeout(quillSaveTimer);
+        quillSaveTimer = null;
+      }
+      // Flush any pending notes for the current account before deletion
+      if (data.selectedAccountId === id) {
+        saveCurrentNotes();
+      }
       data.accounts = data.accounts.filter(a => a.id !== id);
       if (data.selectedAccountId === id) {
         data.selectedAccountId = data.accounts.length > 0 ? data.accounts[0].id : null;
@@ -946,7 +1143,7 @@
       if (!account) return;
       const input = document.getElementById('dealSizeInput');
       if (!input) return;
-      account.dealSize = parseFloat(input.value) || 0;
+      account.dealSize = Math.max(0, parseFloat(input.value) || 0);
       saveData(data);
       renderCommissionResult(account);
       renderCommissionSummary();
@@ -956,14 +1153,16 @@
       const el = document.getElementById('commissionResult');
       if (!el) return;
       const deal = account.dealSize || 0;
-      const comm = deal * COMMISSION_RATE;
+      const rate = data.commissionRate || 0.05;
+      const comm = deal * rate;
+      const pct = (rate * 100).toFixed(1).replace(/\.0$/, '');
       el.innerHTML = `
         <span class="comm-item">
           <span class="comm-label">Deal:</span>
           <span class="comm-value">${formatCurrency(deal)}</span>
         </span>
         <span class="comm-item">
-          <span class="comm-label">Commission (5%):</span>
+          <span class="comm-label">Commission (${pct}%):</span>
           <span class="comm-value">${formatCurrency(comm)}</span>
         </span>
       `;
@@ -977,9 +1176,10 @@
 
       el.style.display = 'block';
       let totalDeal = 0, totalComm = 0;
+      const rate = data.commissionRate || 0.05;
       let rows = '';
       accounts.forEach(a => {
-        const comm = a.dealSize * COMMISSION_RATE;
+        const comm = a.dealSize * rate;
         totalDeal += a.dealSize;
         totalComm += comm;
         rows += `<div class="comm-row"><span>${escapeHtml(a.name)}</span><span class="comm-val">${formatCurrency(comm)}</span></div>`;
@@ -1022,6 +1222,7 @@
 
     function toggleAction(accountId, actionId) {
       const account = getAccount(accountId);
+      if (!account) return;
       const action = account.actions.find(a => a.id === actionId);
       if (!action) return;
 
@@ -1035,6 +1236,7 @@
 
     function deleteAction(accountId, actionId) {
       const account = getAccount(accountId);
+      if (!account) return;
       account.actions = account.actions.filter(a => a.id !== actionId);
       saveData(data);
       renderActions(account);
@@ -1087,6 +1289,10 @@
 
     // ── Conversation Operations ──
     function saveCurrentNotes() {
+      if (quillSaveTimer) {
+        clearTimeout(quillSaveTimer);
+        quillSaveTimer = null;
+      }
       if (!quillInstance) return;
       const account = getSelectedAccount();
       if (!account) return;
@@ -1094,6 +1300,7 @@
       if (!conv) return;
       conv.notesHtml = quillInstance.root.innerHTML;
       conv.notes = quillInstance.getText();
+      conv.updatedAt = new Date().toISOString();
       saveData(data);
     }
 
@@ -1105,7 +1312,7 @@
       if (!title || !title.trim()) return;
 
       saveCurrentNotes();
-      const conv = { id: generateId(), title: title.trim(), notes: '', notesHtml: '' };
+      const conv = { id: generateId(), title: title.trim(), notes: '', notesHtml: '', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
       account.conversations.push(conv);
       account.activeConversationId = conv.id;
       saveData(data);
@@ -1177,18 +1384,30 @@
       const list = document.getElementById('accountList');
       list.innerHTML = '';
 
-      data.accounts.forEach(account => {
+      const searchInput = document.getElementById('accountSearch');
+      const searchTerm = searchInput ? searchInput.value.trim().toLowerCase() : '';
+      const filteredAccounts = searchTerm
+        ? data.accounts.filter(a => a.name.toLowerCase().includes(searchTerm))
+        : data.accounts;
+
+      filteredAccounts.forEach(account => {
         const activeCount = account.actions.filter(a => !a.completed).length;
         const isActive = account.id === data.selectedAccountId;
 
         const div = document.createElement('div');
         div.className = `account-item${isActive ? ' active' : ''}`;
+        div.setAttribute('role', 'button');
+        div.setAttribute('tabindex', '0');
+        div.setAttribute('aria-label', `Select account ${account.name}${activeCount > 0 ? ', ' + activeCount + ' active items' : ''}`);
         div.innerHTML = `
           <span class="account-name">${escapeHtml(account.name)}</span>
           ${activeCount > 0 ? `<span class="account-badge">${activeCount}</span>` : ''}
-          <button class="delete-btn" onclick="event.stopPropagation(); deleteAccount('${account.id}')" title="Delete account">&times;</button>
+          <button class="delete-btn" onclick="event.stopPropagation(); deleteAccount('${account.id}')" title="Delete account" aria-label="Delete account ${escapeHtml(account.name)}">&times;</button>
         `;
         div.addEventListener('click', () => selectAccount(account.id));
+        div.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectAccount(account.id); }
+        });
         list.appendChild(div);
       });
     }
@@ -1256,14 +1475,29 @@
       renderNotes(account);
     }
 
+    function renderTabBar(account) {
+      const tabBar = document.querySelector('.tab-bar');
+      if (!tabBar) return;
+      const activeCount = account.actions.filter(a => !a.completed).length;
+      const archivedCount = account.actions.filter(a => a.completed).length;
+      tabBar.innerHTML = `
+        <button class="${(account.activeTab || 'active') === 'active' ? 'active' : ''}" onclick="switchTab('active')">
+          Active (${activeCount})
+        </button>
+        <button class="${account.activeTab === 'archived' ? 'active' : ''}" onclick="switchTab('archived')">
+          Archived (${archivedCount})
+        </button>
+      `;
+    }
+
     function switchTab(tab) {
       const account = getSelectedAccount();
       if (!account) return;
+      saveCurrentNotes();
       account.activeTab = tab;
       saveData(data);
-      // Re-render just actions panel content
-      const main = document.getElementById('mainContent');
-      renderMainContent();
+      renderTabBar(account);
+      renderActions(account);
     }
 
     function renderActions(account) {
@@ -1311,9 +1545,11 @@
           subHtml += `
             <div class="sub-todo-item">
               <div class="sub-checkbox ${sub.completed ? 'checked' : ''}"
-                   onclick="toggleSubTodo('${account.id}','${action.id}','${sub.id}')"></div>
+                   role="checkbox" aria-checked="${sub.completed}" tabindex="0"
+                   onclick="toggleSubTodo('${account.id}','${action.id}','${sub.id}')"
+                   onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleSubTodo('${account.id}','${action.id}','${sub.id}')}"></div>
               <span class="sub-text ${sub.completed ? 'completed' : ''}">${escapeHtml(sub.text)}</span>
-              <button class="sub-delete" onclick="deleteSubTodo('${account.id}','${action.id}','${sub.id}')">&times;</button>
+              <button class="sub-delete" onclick="deleteSubTodo('${account.id}','${action.id}','${sub.id}')" aria-label="Delete subtask">&times;</button>
             </div>`;
         });
         if (!action.completed) {
@@ -1329,7 +1565,9 @@
         return `
           <div class="action-item ${action.completed ? 'archived' : ''}">
             <div class="checkbox ${action.completed ? 'checked' : ''}"
-                 onclick="toggleAction('${account.id}', '${action.id}')"></div>
+                 role="checkbox" aria-checked="${action.completed}" tabindex="0"
+                 onclick="toggleAction('${account.id}', '${action.id}')"
+                 onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleAction('${account.id}','${action.id}')}"></div>
             <div class="action-content">
               <div class="action-text">${escapeHtml(action.text)}</div>
               <div class="action-meta">
@@ -1340,7 +1578,7 @@
               ${subHtml}
             </div>
             <div class="action-buttons">
-              <button class="action-btn delete-action" onclick="deleteAction('${account.id}', '${action.id}')" title="Delete">🗑</button>
+              <button class="action-btn delete-action" onclick="deleteAction('${account.id}', '${action.id}')" title="Delete" aria-label="Delete action item">🗑</button>
             </div>
           </div>`;
       }).join('');
@@ -1351,15 +1589,21 @@
       const editor = document.getElementById('noteEditor');
       if (!convList || !editor) return;
 
-      const activeConvId = account.activeConversationId || (account.conversations[0] && account.conversations[0].id);
+      let activeConvId = account.activeConversationId || (account.conversations[0] && account.conversations[0].id);
+      if (activeConvId && account.activeConversationId !== activeConvId) {
+        account.activeConversationId = activeConvId;
+        saveData(data);
+      }
 
       convList.innerHTML = account.conversations.map(conv => `
         <button class="conversation-tab ${conv.id === activeConvId ? 'active' : ''}"
                 data-id="${conv.id}"
+                title="${conv.updatedAt ? 'Last edited: ' + formatTimestamp(conv.updatedAt) : ''}"
                 onclick="selectConversation('${conv.id}')"
-                ondblclick="renameConversation('${conv.id}')">
+                ondblclick="renameConversation('${conv.id}')"
+                role="tab" aria-selected="${conv.id === activeConvId}" tabindex="0">
           <span class="conv-title">${escapeHtml(conv.title)}</span>
-          ${account.conversations.length > 1 ? `<span class="remove-conv" onclick="event.stopPropagation(); removeConversation('${conv.id}')">&times;</span>` : ''}
+          ${account.conversations.length > 1 ? `<span class="remove-conv" onclick="event.stopPropagation(); removeConversation('${conv.id}')" role="button" tabindex="0" aria-label="Remove conversation ${escapeHtml(conv.title)}">&times;</span>` : ''}
         </button>
       `).join('');
 
@@ -1370,7 +1614,8 @@
           <div id="quill-container"></div>
           <div class="note-footer">
             <span>Double-click a tab to rename</span>
-            <span>Auto-saved</span>
+            <span id="lastEdited" style="font-size:11px;color:var(--text-light);">${activeConv.updatedAt ? 'Last edited ' + formatTimestamp(activeConv.updatedAt) : ''}</span>
+            <span id="saveIndicator" class="save-indicator saved">Saved \u2713</span>
           </div>
         `;
 
@@ -1394,18 +1639,127 @@
         });
 
         if (activeConv.notesHtml) {
-          quillInstance.root.innerHTML = activeConv.notesHtml;
+          quillInstance.clipboard.dangerouslyPasteHTML(activeConv.notesHtml);
         }
 
         quillInstance.on('text-change', () => {
+          updateSaveIndicator('saving');
           clearTimeout(quillSaveTimer);
           quillSaveTimer = setTimeout(() => {
-            activeConv.notesHtml = quillInstance.root.innerHTML;
-            activeConv.notes = quillInstance.getText();
+            const acc = getSelectedAccount();
+            if (!acc) return;
+            const cv = acc.conversations.find(c => c.id === acc.activeConversationId);
+            if (!cv) return;
+            cv.notesHtml = quillInstance.root.innerHTML;
+            cv.notes = quillInstance.getText();
+            cv.updatedAt = new Date().toISOString();
             saveData(data);
+            const lastEditedEl = document.getElementById('lastEdited');
+            if (lastEditedEl) lastEditedEl.textContent = 'Last edited ' + formatTimestamp(cv.updatedAt);
           }, 400);
         });
       }
+    }
+
+    // ── Export / Import ──
+    function exportData() {
+      const json = JSON.stringify(data, null, 2);
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const dateStr = new Date().toISOString().split('T')[0];
+      a.href = url;
+      a.download = `sales-tracker-backup-${dateStr}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    function importData() {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.json';
+      input.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          try {
+            const imported = JSON.parse(ev.target.result);
+            if (!imported.accounts || !Array.isArray(imported.accounts)) {
+              alert('Invalid data file: missing accounts array.');
+              return;
+            }
+            if (!confirm('This will replace all existing data. Are you sure?')) return;
+            data = imported;
+            // Run migrations on imported data
+            if (data.commissionRate === undefined) data.commissionRate = 0.05;
+            data.accounts.forEach(a => {
+              if (a.dealSize === undefined) a.dealSize = 0;
+              a.actions.forEach(act => {
+                if (!act.subTodos) act.subTodos = [];
+              });
+              a.conversations.forEach(c => {
+                if (c.notesHtml === undefined) c.notesHtml = c.notes || '';
+                if (!c.createdAt) c.createdAt = new Date().toISOString();
+                if (!c.updatedAt) c.updatedAt = c.createdAt;
+              });
+            });
+            saveData(data);
+            render();
+          } catch (err) {
+            alert('Failed to import data: ' + err.message);
+          }
+        };
+        reader.readAsText(file);
+      });
+      input.click();
+    }
+
+    // ── Settings ──
+    function openSettings() {
+      const rate = ((data.commissionRate || 0.05) * 100).toFixed(1);
+      const overlay = document.createElement('div');
+      overlay.className = 'settings-modal-overlay';
+      overlay.id = 'settingsOverlay';
+      overlay.innerHTML = `
+        <div class="settings-modal" role="dialog" aria-label="Settings">
+          <h3>\u2699 Settings</h3>
+          <label for="commissionRateInput">Commission Rate (%)</label>
+          <input type="number" id="commissionRateInput" value="${rate}" min="0" max="100" step="0.1" />
+          <div class="modal-actions">
+            <button onclick="closeSettings()">Cancel</button>
+            <button class="primary" onclick="saveSettings()">Save</button>
+          </div>
+        </div>
+      `;
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) closeSettings();
+      });
+      document.body.appendChild(overlay);
+      document.getElementById('commissionRateInput').focus();
+    }
+
+    function closeSettings() {
+      const overlay = document.getElementById('settingsOverlay');
+      if (overlay) overlay.remove();
+    }
+
+    function saveSettings() {
+      const input = document.getElementById('commissionRateInput');
+      if (!input) return;
+      const pct = parseFloat(input.value);
+      if (isNaN(pct) || pct < 0 || pct > 100) {
+        alert('Please enter a valid commission rate between 0 and 100.');
+        return;
+      }
+      data.commissionRate = pct / 100;
+      saveData(data);
+      closeSettings();
+      const account = getSelectedAccount();
+      if (account) renderCommissionResult(account);
+      renderCommissionSummary();
     }
 
     // ── Keyboard shortcut ──
